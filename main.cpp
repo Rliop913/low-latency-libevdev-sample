@@ -1,12 +1,112 @@
-#include <libevdev/libevdev.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <poll.h>
+#include <cerrno>
 #include <iostream>
+#include <libevdev/libevdev.h>
+#include <linux/input-event-codes.h>
+#include <linux/input.h>
 #include <string>
-#include <cstring>
+#include <sys/epoll.h>
+
+#include "InputSetter.hpp"
 
 int main(int argc, char** argv) {
+    InputSetter ed = InputSetter();
+    auto devs = ed.ls_dev();
+    auto evv = EvWrap();
+    for(const auto& info : devs){
+        if(info.has_relative_pos){
+            std::cout << "Rel Event=======================" << std::endl;
+            std::cout << "dev name: " << info.dev_name << std::endl;
+            std::cout << "dev path: " << info.loc.string() << std::endl;
+        }
+        if(info.has_abs_pos){
+            std::cout << "Abs Event=======================" << std::endl;
+            std::cout << "dev name: " << info.dev_name << std::endl;
+            std::cout << "dev path: " << info.loc.string() << std::endl;
+        }
+        if(info.has_key){
+            std::cout << "kb Event=======================" << std::endl;
+            std::cout << "dev name: " << info.dev_name << std::endl;
+            std::cout << "dev path: " << info.loc.string() << std::endl;
+            evv.Add(info);
+        }
+    }
+    
+    int epfd = epoll_create1(EPOLL_CLOEXEC);
+    
+    
+    for(const auto& dev : evv.events){
+        epoll_event ev;
+        ev.events = EPOLLIN | EPOLLET;
+        ev.data.fd = dev.first;
+        epoll_ctl(epfd, EPOLL_CTL_ADD, dev.first, &ev);
+    }
+    std::cout << "Ready" << std::endl;
+    bool flag_loop = true;
+    while(flag_loop){
+        epoll_event out_events[64];
+        int n = epoll_wait(epfd, out_events, 64, -1);
+        std::cout << "trigged" << n << std::endl;
+        for(int i =0; i<n; ++i){
+            input_event now_ev;
+            bool flag_inner_loop = true;
+            while(flag_inner_loop){
+                CheckEvent:
+                int status = libevdev_next_event(
+                    evv.events[out_events[i].data.fd], 
+                    LIBEVDEV_READ_FLAG_NORMAL, &now_ev);
+                
+                switch (status) {
+                case LIBEVDEV_READ_STATUS_SUCCESS:{
+                    if(now_ev.type == EV_KEY &&
+                        now_ev.code == KEY_A &&
+                        now_ev.value == 1){
+                            flag_loop = false;
+                            std::cout << "pressed";
+                        }
+                    goto CheckEvent;
+                }
+                case LIBEVDEV_READ_STATUS_SYNC:{
+
+                    SyncEvent:
+                    int sync_status = libevdev_next_event(
+                        evv.events[out_events[i].data.fd], 
+                        LIBEVDEV_READ_FLAG_SYNC, 
+                        &now_ev);
+                    
+                    
+                    switch (sync_status) {
+                    case LIBEVDEV_READ_STATUS_SUCCESS:{
+                        goto SyncEvent;
+                    }
+                    case -EAGAIN:{
+                        goto CheckEvent;
+                        
+                    }
+                    default:
+                        break;
+                    }
+                    break;
+                }
+                case -EAGAIN:{
+                    goto outofloop;
+                    break;
+                }
+                case -ENODEV:{
+                    //delete device from epoll
+                    break;
+                }
+                default:{
+                    break;
+                }
+                    
+                }
+                
+            }
+            outofloop:
+        }
+    }
+    return 0;
+}
     // std::string dev = (argc > 1) ? argv[1] : "/dev/input/event0";
 
     // int fd = open(dev.c_str(), O_RDONLY | O_NONBLOCK);
@@ -99,5 +199,5 @@ int main(int argc, char** argv) {
     // // libevdev_grab(devh, LIBEVDEV_UNGRAB);
     // libevdev_free(devh);
     // close(fd);
-    return 0;
-}
+//     return 0;
+// }
