@@ -1,10 +1,12 @@
 #pragma once
 
+#include <linux/input.h>
 #include <utility>
 #include <vector>
 #include <string>
 #include <filesystem>
-
+#include <sys/epoll.h>
+#include <sys/mman.h>
 #include <libevdev/libevdev.h>
 
 namespace fs = std::filesystem;
@@ -32,10 +34,17 @@ public:
 class InputSetter{
 
 private:
-public:
+    bool drain_events(const int epFD, int FD, libevdev* evdev);
+    void use_event(const input_event& evtrig);
+    void remove_device();
+    public:
+    std::vector<int> sample;
     std::vector<dev_info> ls_dev();
-    void epoll_devs();
+    void epoll_devs(EvWrap& targets);
     void parse_event();
-    InputSetter() = default;
+    InputSetter(){
+        sample.resize(128);
+        mlock(sample.data(), sizeof(int) * sample.size());//pin memory
+    }
     ~InputSetter() = default;
 };

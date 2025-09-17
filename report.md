@@ -22,3 +22,11 @@ mouse --> X
 ```
 
 
+optimization
+
+```mermaid
+flowchart TD
+priority_up --> thread
+memory_lock --> shared_memory
+```
+
