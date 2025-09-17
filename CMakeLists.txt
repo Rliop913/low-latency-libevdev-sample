@@ -17,12 +17,17 @@ ${CMAKE_SOURCE_DIR}/include/ProcessCTRL.cpp
 
 )
 
+pkg_check_modules(LIBEVDEV REQUIRED IMPORTED_TARGET libevdev)
+pkg_check_modules(LIBNUMA REQUIRED IMPORTED_TARGET numa)
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/include
+  ${LIBNUMA_INCLUDE_DIRS}
 )
 
-pkg_check_modules(LIBEVDEV REQUIRED IMPORTED_TARGET libevdev)
+link_libraries(
+  ${LIBNUMA_LIBRARIES}
+)
 
 add_executable(libevdev-sample main.cpp InputSetter.cpp ${SOURCES})
 
@@ -36,3 +41,4 @@ add_executable(INPUT_GETTER ipcMain.cpp InputSetter.cpp ${SOURCES})
 target_link_libraries(INPUT_GETTER PRIVATE PkgConfig::LIBEVDEV)
 
 target_include_directories(INPUT_GETTER PRIVATE ${CMAKE_SOURCE_DIR})
+

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <linux/input.h>
+#include <sched.h>
 #include <utility>
 #include <vector>
 #include <string>
@@ -8,7 +9,8 @@
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <libevdev/libevdev.h>
-
+#include <numa.h>
+#include <numaif.h>
 namespace fs = std::filesystem;
 #include <unordered_map>
 
@@ -42,9 +44,13 @@ private:
     std::vector<dev_info> ls_dev();
     void epoll_devs(EvWrap& targets);
     void parse_event();
-    InputSetter(){
-        sample.resize(128);
-        mlock(sample.data(), sizeof(int) * sample.size());//pin memory
+public:
+    static int cpu_valid_check(int& cpu_number);
+    static bool set_cpu(std::string& ErrOut, int cpu_number = 2);
+    InputSetter(std::string& ErrOut){
+        mlockall(MCL_CURRENT | MCL_FUTURE);
     }
-    ~InputSetter() = default;
+    ~InputSetter(){
+        munlockall();
+    }
 };

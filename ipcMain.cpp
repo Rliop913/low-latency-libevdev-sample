@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/un.h>
 
+#include "InputSetter.hpp"
 
 int recv_fd(int sock) {
     msghdr msg = {0};
@@ -40,6 +41,23 @@ int main(int argc, char** argv){
     if(argc < 1){
         return -1;
     }
+    std::string errlog;
+    if(!InputSetter::set_cpu(errlog)){
+        std::cerr << errlog << std::endl;
+        return -2;
+    }
+    errlog.clear();
+    
+    std::string inputErr;
+    InputSetter evinput(inputErr);
+    auto devices = evinput.ls_dev();
+
+    
+
+
+
+
+
     std::cout << "spawned!!!" << argv[1] << std::endl;
     
     std::string socket_path(argv[1]);

@@ -7,6 +7,9 @@
 #include <filesystem>
 #include <libevdev/libevdev.h>
 #include <linux/input.h>
+#include <numa.h>
+#include <numaif.h>
+#include <sched.h>
 #include <string>
 
 #include <unistd.h>
@@ -179,4 +182,86 @@ InputSetter::epoll_devs(EvWrap& targets)
     }
     return;
     
+}
+
+int
+InputSetter::cpu_valid_check(int& cpu_number)
+{
+    cpu_set_t allowed;
+    CPU_ZERO(&allowed);
+
+    if(sched_getaffinity(0, sizeof(allowed), &allowed) != 0){
+        return -1;
+    }
+
+    if(!CPU_ISSET(cpu_number, &allowed)){
+
+        for(int i=0; i < CPU_SETSIZE; ++i){
+            if(CPU_ISSET(i, &allowed)){
+                cpu_number = i;
+                break;
+            }
+        }
+        if(!CPU_ISSET(cpu_number, &allowed)){
+            return -2;
+        }
+    }
+    return 0;
+}
+
+bool
+InputSetter::set_cpu(std::string& ErrOut, int cpu_number)
+{
+    int valid_res = cpu_valid_check(cpu_number);
+    if(valid_res < 0){
+        switch (valid_res) {
+        case -1:
+            ErrOut += "failed to sched getaffinity\n";
+            break;
+        case -2:
+            ErrOut += "failed to set cpu number\n";
+            break;
+        }
+        return false;
+    }
+
+    cpu_set_t cpu_set;
+    CPU_ZERO(&cpu_set);
+
+    CPU_SET(cpu_number, &cpu_set);
+
+    if(sched_setaffinity(0, sizeof(cpu_set), &cpu_set) != 0){
+        ErrOut += "failed to set affinity\n";
+        return false;
+    }
+
+    if(numa_available() != -1){
+        int node = numa_node_of_cpu(cpu_number);
+        node = node >= 0 ? node : 0;
+
+        int policy = MPOL_BIND;
+
+        bitmask* node_mask = numa_allocate_nodemask();
+
+        if(!node_mask){
+            ErrOut += "failed to allocate node mask\n";
+            return false;
+        }
+        else{
+            numa_bitmask_clearall(node_mask);
+            numa_bitmask_setbit(node_mask, node);
+
+            if(set_mempolicy(policy, node_mask->maskp, node_mask->size)){
+                ErrOut += "set mem policy failed\n";
+                return false;
+            }
+            numa_free_nodemask(node_mask);
+
+        }
+        return true;
+    }
+    else{
+        ErrOut += "numa unavailable\n";
+        return true;
+    }
 }
