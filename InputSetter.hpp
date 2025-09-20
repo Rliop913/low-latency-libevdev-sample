@@ -16,6 +16,7 @@ namespace fs = std::filesystem;
 
 struct dev_info {
     std::string dev_name;
+    std::string dev_type;
     bool has_relative_pos;
     bool has_abs_pos;
     bool has_key;
@@ -39,12 +40,12 @@ private:
     bool drain_events(const int epFD, int FD, libevdev* evdev);
     void use_event(const input_event& evtrig);
     void remove_device();
-    public:
+public:
     std::vector<int> sample;
     std::vector<dev_info> ls_dev();
     void epoll_devs(EvWrap& targets);
     void parse_event();
-public:
+    
     static int cpu_valid_check(int& cpu_number);
     static bool set_cpu(std::string& ErrOut, int cpu_number = 2);
     InputSetter(std::string& ErrOut){

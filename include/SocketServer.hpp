@@ -1,23 +1,51 @@
 #pragma once
 
+#include <cstddef>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include "nlohmann/json_fwd.hpp"
 #include "spawn.h"
 #include "IPCSHM.hpp"
 #include <string>
+#include "InputSetter.hpp"
+#include <nlohmann/json.hpp>
+#include <arpa/inet.h>
+
+enum SocketTransmission{
+    GET_DEVICE = 0,
+    SET_DEVICE,
+    SET_INPUT_LOOP_ARG
+};
+using nj = nlohmann::json;
 class SocketServer {
 private:
     int socket_FD;
     int client_FD;
     pid_t proc_pid;
     std::string __socketPath;
+    nj jparser;
+    int sendByte(const void* data, size_t len);
+    int readByte(void* data, size_t len);
 public:
     bool Listen();
     bool Accept();
     bool sudo_open(const std::string& exec_path, const std::string& arg);
+    
     template<typename T, int MEM_PROT_FLAG>
-    int send_fd_to_proc(const IPCSharedMem<T,MEM_PROT_FLAG>& shared_IPC_mem){
+    int send_fd_to_proc(const IPCSharedMem<T,MEM_PROT_FLAG>& shared_IPC_mem);
+
+    std::vector<dev_info> request_device_list(std::string& ErrOut);
+    bool stop_proc(bool* shared_mem_stop_flag);
+
+    SocketServer(const std::string& socket_file_path);
+    ~SocketServer();
+};
+
+
+template<typename T, int MEM_PROT_FLAG>
+int
+SocketServer::send_fd_to_proc(const IPCSharedMem<T,MEM_PROT_FLAG>& shared_IPC_mem){
         struct msghdr msg = {0};
         //data trans
         struct iovec iov = {
@@ -43,7 +71,3 @@ public:
             sizeof(int));
         return sendmsg(client_FD, &msg, 0);
     }
-    bool stop_proc(bool* shared_mem_stop_flag);
-    SocketServer(const std::string& socket_file_path);
-    ~SocketServer();
-};

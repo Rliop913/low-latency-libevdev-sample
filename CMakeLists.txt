@@ -29,16 +29,28 @@ link_libraries(
   ${LIBNUMA_LIBRARIES}
 )
 
+include(FetchContent)
+
+FetchContent_Declare(
+  NHJson
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+)
+
+FetchContent_MakeAvailable(NHJson)
+include_directories(${nlohmann_json_SOURCE_DIR}/include)
+
+
 add_executable(libevdev-sample main.cpp InputSetter.cpp ${SOURCES})
 
-target_link_libraries(libevdev-sample PRIVATE PkgConfig::LIBEVDEV)
+target_link_libraries(libevdev-sample PRIVATE PkgConfig::LIBEVDEV nlohmann_json::nlohmann_json)
 
 target_include_directories(libevdev-sample PRIVATE ${CMAKE_SOURCE_DIR})
 
 
 add_executable(INPUT_GETTER ipcMain.cpp InputSetter.cpp ${SOURCES})
 
-target_link_libraries(INPUT_GETTER PRIVATE PkgConfig::LIBEVDEV)
+target_link_libraries(INPUT_GETTER PRIVATE PkgConfig::LIBEVDEV nlohmann_json::nlohmann_json)
 
 target_include_directories(INPUT_GETTER PRIVATE ${CMAKE_SOURCE_DIR})
 
